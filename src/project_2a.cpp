@@ -5,18 +5,23 @@
 #include <utility>
 
 int main(int argc, char **argv) {
-  if (argc != 5) {
+  if (argc != 7) {
     std::cerr << "Usage: " << argv[0]
-              << " <filename> <learning_rate> <tolerance> <max_iteration>"
+              << " <train_filename> <output_filename> <log_filename> "
+                 "<learning_rate> "
+                 "<tolerance> <max_iteration>"
               << std::endl;
     return 1;
   }
   const std::string file_name = argv[1];
   std::cout << "Using file: " << file_name << std::endl;
-
-  double learning_rate = std::atof(argv[2]);
-  double tol_training = std::atof(argv[3]); // Convergence tolerance
-  unsigned max_iter = std::atoi(argv[4]);   // Max iterations
+  const std::string output_filename = argv[2];
+  std::cout << "Output file: " << output_filename << std::endl;
+  const std::string log_filename = argv[3];
+  std::cout << "Test file: " << log_filename << std::endl;
+  double learning_rate = std::atof(argv[4]);
+  double tol_training = std::atof(argv[5]); // Convergence tolerance
+  unsigned max_iter = std::atoi(argv[6]);   // Max iterations
   //
   int tmp;
   std::vector<int> neurons;
@@ -54,5 +59,13 @@ int main(int argc, char **argv) {
   std::vector<std::pair<DoubleVector, DoubleVector>> training_data;
   nn.read_training_data(file_name, training_data);
 
-  nn.train(training_data, learning_rate, tol_training, max_iter);
+  nn.train(training_data, learning_rate, tol_training, max_iter, log_filename);
+
+  auto inputData = std::accumulate(training_data.begin(), training_data.end(),
+                                   std::vector<DoubleVector>{},
+                                   [](auto vec, const auto &data) {
+                                     vec.push_back(data.first);
+                                     return vec;
+                                   });
+  nn.output_training_data(output_filename, file_name);
 }

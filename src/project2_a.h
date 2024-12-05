@@ -431,4 +431,46 @@ public:
                 << std::endl;
     }
   }
+
+  void output_training_data(const std::string &output_filename,
+                            const std::string &training_data_filename) const {
+    // Read training data
+    std::vector<std::pair<DoubleVector, DoubleVector>> training_data;
+    bool do_sanity_check = true;
+    read_training_data(training_data_filename, training_data);
+
+    // Do the actual output
+    std::ofstream outfile(output_filename.c_str());
+    NeuralNetworkBasis::output_training_data(outfile, training_data);
+    outfile.close();
+  }
+  /// Output result from trained network for specified inputs
+  void output(std::string filename,
+              const std::vector<DoubleVector> &input) const {
+    std::ofstream outfile(filename.c_str());
+    output(outfile, input);
+    outfile.close();
+  }
+
+  /// Output result from trained network for specified inputs
+  void output(std::ofstream &outfile,
+              const std::vector<DoubleVector> &input) const {
+    unsigned npts = input.size();
+    for (unsigned i = 0; i < npts; i++) {
+      DoubleVector current_input(input[i]);
+      unsigned n = current_input.n();
+      for (unsigned j = 0; j < n; j++) {
+        outfile << current_input[j] << " ";
+      }
+
+      // Feed through network; output gets resized automatically
+      DoubleVector output;
+      feed_forward(current_input, output);
+      n = output.n();
+      for (unsigned j = 0; j < n; j++) {
+        outfile << output[j] << " ";
+      }
+      outfile << std::endl;
+    }
+  }
 };

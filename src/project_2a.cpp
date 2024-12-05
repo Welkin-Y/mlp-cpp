@@ -5,13 +5,19 @@
 #include <utility>
 
 int main(int argc, char **argv) {
-  if (argc < 2) {
-    std::cerr << "Usage: " << argv[0] << " <filename>" << std::endl;
+  if (argc != 5) {
+    std::cerr << "Usage: " << argv[0]
+              << " <filename> <learning_rate> <tolerance> <max_iteration>"
+              << std::endl;
     return 1;
   }
   const std::string file_name = argv[1];
   std::cout << "Using file: " << file_name << std::endl;
 
+  double learning_rate = std::atof(argv[2]);
+  double tol_training = std::atof(argv[3]); // Convergence tolerance
+  unsigned max_iter = std::atoi(argv[4]);   // Max iterations
+  //
   int tmp;
   std::vector<int> neurons;
   std::cout << "Enter the number of neurons in next layer, ^D to finish: ";
@@ -47,10 +53,6 @@ int main(int argc, char **argv) {
 
   std::vector<std::pair<DoubleVector, DoubleVector>> training_data;
   nn.read_training_data(file_name, training_data);
-
-  double learning_rate = 0.1;
-  double tol_training = 1e-4; // Convergence tolerance
-  unsigned max_iter = 100000; // Max iterations
 
   nn.train(training_data, learning_rate, tol_training, max_iter);
 }

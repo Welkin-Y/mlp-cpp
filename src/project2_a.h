@@ -328,8 +328,7 @@ public:
                 << std::endl;
 
       // Check for convergence based on the tolerance
-      if (iter > 0 &&
-          std::abs(total_cost - convergence_history.back()) < tol_training) {
+      if (iter > 0 && std::abs(total_cost) < tol_training) {
         std::cout << "Converged at iteration " << iter << " with cost "
                   << total_cost << std::endl;
         break;

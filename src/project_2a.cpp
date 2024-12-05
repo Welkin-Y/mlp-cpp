@@ -4,7 +4,14 @@
 #include <iostream>
 #include <utility>
 
-int main() {
+int main(int argc, char **argv) {
+  if (argc < 2) {
+    std::cerr << "Usage: " << argv[0] << " <filename>" << std::endl;
+    return 1;
+  }
+  const std::string file_name = argv[1];
+  std::cout << "Using file: " << file_name << std::endl;
+
   ///
   // Instantiate an activation function (same for all layers)
   //---------------------------------------------------------
@@ -31,7 +38,6 @@ int main() {
   NeuralNetwork nn(n_input, non_input_layer); // Input layer has 2 neurons
 
   std::vector<std::pair<DoubleVector, DoubleVector>> training_data;
-  const std::string file_name = "./project_training_data.dat";
   nn.read_training_data(file_name, training_data);
 
   double learning_rate = 0.1;

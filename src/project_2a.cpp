@@ -12,6 +12,18 @@ int main(int argc, char **argv) {
   const std::string file_name = argv[1];
   std::cout << "Using file: " << file_name << std::endl;
 
+  int tmp;
+  std::vector<int> neurons;
+  std::cout << "Enter the number of neurons in next layer, ^D to finish: ";
+  while (std::cin >> tmp) {
+    std::cout << "Enter the number of neurons in next layer, ^D to finish: ";
+    neurons.emplace_back(tmp);
+  }
+  if (neurons.size() < 2) {
+    std::cerr << "At least two layers are needed" << std::endl;
+    return 1;
+  }
+
   ///
   // Instantiate an activation function (same for all layers)
   //---------------------------------------------------------
@@ -20,20 +32,16 @@ int main(int argc, char **argv) {
   // Build the network: 2,3,3,1 neurons in the four layers
   //------------------------------------------------------
   // Number of neurons in the input layer
-  unsigned n_input = 2;
+  unsigned n_input = neurons[0];
   // Storage for the non-input layers: combine the number of neurons
   // and the (pointer to the) activation function into a pair
   // and store one pair for each layer in a vector:
   std::vector<std::pair<unsigned, ActivationFunction *>> non_input_layer;
 
-  // The first internal (hidden) layer has 3 neurons
-  non_input_layer.push_back(std::make_pair(3, activation_function_pt));
-
-  // The second internal (hidden) layer has 3 neurons too!
-  non_input_layer.push_back(std::make_pair(3, activation_function_pt));
-
-  // Here's the output layer: A single neuron
-  non_input_layer.push_back(std::make_pair(1, activation_function_pt));
+  for (unsigned i = 1; i < neurons.size(); i++) {
+    non_input_layer.emplace_back(
+        std::make_pair(neurons[i], activation_function_pt));
+  }
 
   NeuralNetwork nn(n_input, non_input_layer); // Input layer has 2 neurons
 

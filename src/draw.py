@@ -4,13 +4,15 @@ from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
 import sys
 
-if len(sys.argv) < 2:
+if len(sys.argv) < 3:
     print('Usage: python draw.py <output_file> <train_data>')
     sys.exit(1)
 
 data_file = sys.argv[1]
+train_data = sys.argv[2]
 
 tData = pd.read_csv(data_file, delim_whitespace=True, header=None, names=['x', 'y', 'z'])
+rData = pd.read_csv(train_data, delim_whitespace=True, header=None, names=['x', 'y', 'z'])
 
 x1, y1 = np.meshgrid(np.arange(0, 1.001, 0.001), np.arange(0, 1.001, 0.001))
 
@@ -18,7 +20,7 @@ z1 = griddata((tData['x'], tData['y']), tData['z'], (x1, y1), method='linear')
 
 plt.contour(x1, y1, z1, levels=[0], linewidths=1)
 
-plt.scatter(tData['x'], tData['y'], c=tData['z'], cmap='viridis', edgecolor='k')
+plt.scatter(rData['x'], rData['y'], c=rData['z'], cmap='viridis', edgecolor='k')
 
 plt.axis('equal')
 

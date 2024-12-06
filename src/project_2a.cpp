@@ -67,5 +67,5 @@ int main(int argc, char **argv) {
                                      vec.push_back(data.first);
                                      return vec;
                                    });
-  nn.output_training_data(output_filename, file_name);
+  nn.output(output_filename, inputData);
 }

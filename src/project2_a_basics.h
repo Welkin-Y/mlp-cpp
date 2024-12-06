@@ -2,17 +2,15 @@
 /// Virtual base classes for use in project, defining the required interfaces.
 /// Also some helper functions that may be useful
 
-// C++ includes
 #include <cassert>
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <random>
 #include <sstream>
-#include <vector>
-
-// For pair
 #include <utility>
+#include <vector>
 
 // Basic linear algebra provided
 #include "dense_linear_algebra.h"
@@ -28,66 +26,46 @@ namespace RandomNumber {
 /// each time the program is run
 std::random_device Random_device;
 
-// Pseudo-random number generator seeded with
-// a random number
-// std::mt19937 Random_number_generator(Random_device());
-
-//  Alternative:
-
-/// Pseudo random number generator seeded with a
-/// constant integer (here 12345). This is useful for
-/// debugging because the program then produces the same sequence
-/// of random numbers each time it runs.
 std::mt19937 Random_number_generator(12345);
 
 } // namespace RandomNumber
 
-void initRandomMatrix(DoubleMatrix &M, std::normal_distribution<> &probDist) {
+template <typename T>
+void initRandomMatrix(Matrix<T> &M, std::normal_distribution<> &probDist) {
   for (unsigned i = 0; i < M.n(); i++)
     for (unsigned j = 0; j < M.m(); j++)
       M(i, j) = probDist(RandomNumber::Random_number_generator);
 }
 
-void initRandomVector(DoubleVector &v, std::normal_distribution<> &probDist) {
+template <typename T>
+void initRandomVector(Vector<T> &v, std::normal_distribution<> &probDist) {
   for (unsigned i = 0; i < v.n(); i++)
     v[i] = probDist(RandomNumber::Random_number_generator);
 }
-/////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////
-
 //=================================================================
 /// Base class for activation function
 //=================================================================
 class ActivationFunction {
 public:
-  /// Empty constructor
-  ActivationFunction() {};
+  ActivationFunction() = default;
+  virtual ~ActivationFunction() = default;
+  ActivationFunction(ActivationFunction const &) = default;
+  ActivationFunction &operator=(ActivationFunction const &) = default;
+  ActivationFunction(ActivationFunction &&) = default;
 
   /// Name of the activation function; just some identifier so we can check
   /// if we've assigned the right one when reading in data for a trained
-  /// network from a file. Makes sense to use the name of the class
-  /// (which, sadly, can't be retrieved from within the code because
-  /// different compilers do different name-mangling).
+  /// network from a file.
   virtual std::string name() const = 0;
 
   /// Definition of the activation function; pure virtual
-  virtual double sigma(const double &x) = 0;
+  virtual double sigma(double const &x) = 0;
 
   /// Derivative of activation function; default implementation
   /// using FD
-  virtual double dsigma(const double &x) {
-    // Reference value
-    double xx = x;
-    double sigma_ref = sigma(xx);
-
-    // Advanced value
-    double fd_step = 1.0e-8;
-    xx += fd_step;
-    double sigma_pls = sigma(xx);
-
-    // Return forward difference approximation
-    return (sigma_pls - sigma_ref) / fd_step;
+  virtual double dsigma(double const &x) {
+    double const fd_step = 1.0e-8;
+    return (sigma(x + fd_step) - sigma(x)) / fd_step;
   }
 };
 
@@ -96,12 +74,12 @@ public:
 //=================================================================
 class TanhActivationFunction : public ActivationFunction {
 public:
-  /// Empty constructor
-  TanhActivationFunction() {};
+  TanhActivationFunction() = default;
+  virtual ~TanhActivationFunction() = default;
+  TanhActivationFunction(TanhActivationFunction const &) = default;
+  TanhActivationFunction &operator=(TanhActivationFunction const &) = default;
+  TanhActivationFunction(TanhActivationFunction &&) = default;
 
-  /// Name of the function (so we can check if we've assigned
-  /// the right one when reading in a trained network from
-  /// a file)
   std::string name() const { return "TanhActivationFunction"; }
 
   /// Definition of the activation function
@@ -113,35 +91,30 @@ public:
   }
 };
 
-/////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////
-
 //=================================================================
 /// Base class for neural network; derive your own network from
 /// this!
 //=================================================================
+template <typename Vector, typename Matrix, typename T>
 class NeuralNetworkBasis {
 public:
   /// Evaluate the feed-forward algorithm, running through the entire network,
   /// for input x. Feed it through the non-input-layers and return the
   /// output from the final layer.
-  virtual void feed_forward(const DoubleVector &input,
-                            DoubleVector &output) const = 0;
+  virtual void feed_forward(Vector const &input, Vector &output) const = 0;
 
   /// Get cost for given input and specified target output, so we're doing
   /// a single run through the network and compare the output to the target
   /// output.
-  virtual double cost(const DoubleVector &input,
-                      const DoubleVector &target_output) const = 0;
+  virtual double cost(const Vector &input,
+                      const Vector &target_output) const = 0;
 
   /// Get cost for training data. The vector contains the training data
   /// in the form of pairs comprising
   ///   training_data[i].first  = input (a DoubleVector)
   ///   training_data[i].second = target_output (a DoubleVector)
   virtual double cost_for_training_data(
-      const std::vector<std::pair<DoubleVector, DoubleVector>> training_data)
-      const = 0;
+      const std::vector<std::pair<Vector, Vector>> training_data) const = 0;
 
   /// Write parameters for network to file (e.g. following
   /// successful training). Format:
@@ -177,7 +150,7 @@ public:
   /// of the file used to document the convergence history.
   /// No convergence history is written if string is empty or not provided.
   virtual void
-  train(const std::vector<std::pair<DoubleVector, DoubleVector>> &training_data,
+  train(const std::vector<std::pair<Vector, Vector>> &training_data,
         const double &learning_rate, const double &tol_training,
         const unsigned &max_iter,
         const std::string &convergence_history_file_name = "") = 0;
@@ -187,14 +160,14 @@ public:
   /// This function is broken but demonstrates how to draw normally
   /// distributed random numbers. Please reimplement it so that the random
   /// values are assigned to your weights and biases.
-  virtual void initialise_parameters(const double &mean, const double &std_dev,
-                                     DoubleMatrix &weights,
-                                     DoubleVector &biases) {
+  ///
+  virtual void initialise_parameters(const T &mean, const T &std_dev,
+                                     Matrix &weights, Vector &biases) {
     // Set up a normal distribution.
 
     // Calling "normal_dist(rnd)" then returns a random number drawn
     // from this distribution
-    std::normal_distribution<> normal_dist(mean, std_dev);
+    std::normal_distribution<T> normal_dist(mean, std_dev);
 
     // TODO: This is a dummy loop; make it visit all the weights and
     //       biases and assign the random number from the normal
@@ -226,7 +199,7 @@ public:
   ///
   virtual void read_training_data(
       const std::string &filename,
-      std::vector<std::pair<DoubleVector, DoubleVector>> &training_data) const {
+      std::vector<std::pair<Vector, Vector>> &training_data) const {
     // Wipe training data so we can push back
     training_data.clear();
 
@@ -240,8 +213,8 @@ public:
     training_data_file >> n_output;
 
     // Read the actual data
-    DoubleVector input(n_input);
-    DoubleVector output(n_output);
+    Vector input(n_input);
+    Vector output(n_output);
     for (unsigned i = 0; i < n_training_sets; i++) {
       for (unsigned j = 0; j < n_input; j++) {
         training_data_file >> input[j];
@@ -271,10 +244,9 @@ public:
   /// containing
   ///  i1,i2,...,in, t1,t2,...,tm
   /// to the specified output stream.
-  void
-  output_training_data(std::ofstream &outfile,
-                       const std::vector<std::pair<DoubleVector, DoubleVector>>
-                           &training_data) const {
+  void output_training_data(
+      std::ofstream &outfile,
+      const std::vector<std::pair<Vector, Vector>> &training_data) const {
     unsigned n = training_data.size();
     for (unsigned i = 0; i < n; i++) {
       unsigned m = (training_data[i].first).n();
@@ -298,7 +270,7 @@ public:
   void output_training_data(const std::string &output_filename,
                             const std::string &training_data_filename) const {
     // Read training data
-    std::vector<std::pair<DoubleVector, DoubleVector>> training_data;
+    std::vector<std::pair<Vector, Vector>> training_data;
     bool do_sanity_check = true;
     read_training_data(training_data_filename, training_data);
 
@@ -309,26 +281,24 @@ public:
   }
 
   /// Output result from trained network for specified inputs
-  void output(std::string filename,
-              const std::vector<DoubleVector> &input) const {
+  void output(std::string filename, const std::vector<Vector> &input) const {
     std::ofstream outfile(filename.c_str());
     output(outfile, input);
     outfile.close();
   }
 
   /// Output result from trained network for specified inputs
-  void output(std::ofstream &outfile,
-              const std::vector<DoubleVector> &input) const {
+  void output(std::ofstream &outfile, const std::vector<Vector> &input) const {
     unsigned npts = input.size();
     for (unsigned i = 0; i < npts; i++) {
-      DoubleVector current_input(input[i]);
+      Vector current_input(input[i]);
       unsigned n = current_input.n();
       for (unsigned j = 0; j < n; j++) {
         outfile << current_input[j] << " ";
       }
 
       // Feed through network; output gets resized automatically
-      DoubleVector output;
+      Vector output;
       feed_forward(current_input, output);
       n = output.n();
       for (unsigned j = 0; j < n; j++) {

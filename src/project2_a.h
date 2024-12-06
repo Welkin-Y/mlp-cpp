@@ -5,19 +5,19 @@
 #include <memory>
 #include <random>
 
-class NeuralNetworkLayer {
+template <typename T> class NeuralNetworkLayer {
 public:
-  DoubleMatrix weights;
-  DoubleVector biases;
-  DoubleVector error;
-  std::shared_ptr<DoubleVector> output;
+  Matrix<T> weights;
+  Vector<T> biases;
+  Vector<T> error;
+  std::shared_ptr<Vector<T>> output;
   ActivationFunction *activationFunction;
 
   NeuralNetworkLayer(const unsigned int inDim, const unsigned int outDim,
                      ActivationFunction *activationFunc)
       : weights(inDim, outDim), biases(outDim), error(outDim),
         activationFunction(activationFunc) {
-    output = std::make_shared<DoubleVector>(outDim);
+    output = std::make_shared<Vector<T>>(outDim);
   }
 
   unsigned get_input_dim() const { return weights.n(); }
@@ -26,7 +26,7 @@ public:
   /// Evaluate the feed-forward algorithm, running through the entire network,
   /// for input x. Feed it through the non-input-layers and return the
   /// output from the final layer.
-  void computeOutput(const DoubleVector &input, DoubleVector &output) const {
+  void computeOutput(const Vector<T> &input, Vector<T> &output) const {
     assert((void("Input vector has wrong size"), input.n() == get_input_dim()));
     assert(
         (void("Output vector has wrong size"), output.n() == get_output_dim()));
@@ -44,9 +44,10 @@ public:
   }
 };
 
-class NeuralNetwork : NeuralNetworkBasis {
+template <typename T>
+class NeuralNetwork : NeuralNetworkBasis<Vector<T>, Matrix<T>, T> {
 public:
-  std::vector<NeuralNetworkLayer> layers;
+  std::vector<NeuralNetworkLayer<T>> layers;
   /// Constructor: Pass the number of inputs (i.e. the number of
   /// neurons in the input layer), n_input , and a vector of pairs ,
   /// containing for each subsequent layer (incl. the output layer)
@@ -67,13 +68,14 @@ public:
   NeuralNetwork(const unsigned &n_input,
                 const std::vector<std::pair<unsigned, ActivationFunction *>>
                     &non_input_layer) {
-    NeuralNetworkLayer new_layer(n_input, non_input_layer[0].first,
-                                 non_input_layer[0].second);
+    NeuralNetworkLayer<T> new_layer(n_input, non_input_layer[0].first,
+                                    non_input_layer[0].second);
+    initialise_parameters(0, 0.1, new_layer.weights, new_layer.biases);
     layers.push_back(new_layer);
     for (unsigned i = 1; i < non_input_layer.size(); i++) {
-      NeuralNetworkLayer new_layer(non_input_layer[i - 1].first,
-                                   non_input_layer[i].first,
-                                   non_input_layer[i].second);
+      NeuralNetworkLayer<T> new_layer(non_input_layer[i - 1].first,
+                                      non_input_layer[i].first,
+                                      non_input_layer[i].second);
       initialise_parameters(0, 0.1, new_layer.weights, new_layer.biases);
       layers.push_back(new_layer);
     }
@@ -82,14 +84,14 @@ public:
   /// Evaluate the feed-forward algorithm, running through the entire network,
   /// for input x. Feed it through the non-input-layers and return the
   /// output from the final layer.
-  virtual void feed_forward(const DoubleVector &input,
-                            DoubleVector &output) const override {
-    DoubleVector current_output = input; // Start with the input vector
+  virtual void feed_forward(Vector<T> const &input,
+                            Vector<T> &output) const override {
+    Vector<T> current_output = input; // Start with the input vector
     // Iterate over all layers
 
     for (unsigned i = 0; i < layers.size(); i++) {
       // Output of the current layer is stored in current_output
-      output = DoubleVector(layers[i].get_output_dim());
+      output = Vector<T>(layers[i].get_output_dim());
       layers[i].computeOutput(current_output, output);
 
       // The output of this layer becomes the input for the next layer
@@ -100,10 +102,10 @@ public:
   /// Get cost for given input and specified target output, so we're doing
   /// a single run through the network and compare the output to the target
   /// output.
-  virtual double cost(const DoubleVector &input,
-                      const DoubleVector &target_output) const override {
+  virtual double cost(const Vector<T> &input,
+                      const Vector<T> &target_output) const override {
     double total_cost = 0.0;
-    DoubleVector output;
+    Vector<T> output;
     feed_forward(input, output);
     for (size_t i = 0; i < target_output.n(); ++i) {
       double error = output[i] - target_output[i];
@@ -118,7 +120,7 @@ public:
   ///   training_data[i].first  = input (a DoubleVector)
   ///   training_data[i].second = target_output (a DoubleVector)
   virtual double cost_for_training_data(
-      const std::vector<std::pair<DoubleVector, DoubleVector>> training_data)
+      const std::vector<std::pair<Vector<T>, Vector<T>>> training_data)
       const override {
     double ret{0};
     for (const auto &data_pair : training_data) {
@@ -149,7 +151,7 @@ public:
 
     // Iterate over each non-input layer in the network
     for (size_t layerIdx = 1; layerIdx < layers.size(); ++layerIdx) {
-      const NeuralNetworkLayer &layer = layers[layerIdx];
+      const NeuralNetworkLayer<T> &layer = layers[layerIdx];
 
       // Write the name of the activation function
       outFile << layer.activationFunction->name() << std::endl;
@@ -192,7 +194,7 @@ public:
 
     // Iterate over each non-input layer in the network
     for (size_t layerIdx = 1; layerIdx < layers.size(); ++layerIdx) {
-      NeuralNetworkLayer &layer = layers[layerIdx];
+      NeuralNetworkLayer<T> &layer = layers[layerIdx];
 
       // Read the activation function name
       std::string activationFunctionName;
@@ -245,7 +247,7 @@ public:
   /// No convergence history is written if string is empty or not
   /// provided.
   virtual void
-  train(const std::vector<std::pair<DoubleVector, DoubleVector>> &training_data,
+  train(const std::vector<std::pair<Vector<T>, Vector<T>>> &training_data,
         const double &learning_rate, const double &tol_training,
         const unsigned &max_iter,
         const std::string &convergence_history_file_name = "./log") override {
@@ -265,16 +267,16 @@ public:
 
       // Loop over each training example
       for (const auto &data_pair : shuffled_data) {
-        const DoubleVector &input = data_pair.first;
-        const DoubleVector &target_output = data_pair.second;
+        const Vector<T> &input = data_pair.first;
+        const Vector<T> &target_output = data_pair.second;
 
         // Feed-forward: Compute the output of the network for this input
-        DoubleVector output(target_output.n());
+        Vector<T> output(target_output.n());
         feed_forward(input, output);
 
         // Backpropagation: Calculate the error and update weights and biases
         // First, compute the error at the output layer
-        DoubleVector output_error = DoubleVector(target_output.n());
+        Vector<T> output_error = Vector<T>(target_output.n());
         for (size_t i = 0; i < target_output.n(); ++i) {
           output_error[i] = (output[i] - target_output[i]) *
                             layers.back().activationFunction->dsigma(output[i]);
@@ -357,14 +359,14 @@ public:
   /// deviation. This function is broken but demonstrates how to draw
   /// normally distributed random numbers. Please reimplement it so that
   /// the random values are assigned to your weights and biases.
-  virtual void initialise_parameters(const double &mean, const double &std_dev,
-                                     DoubleMatrix &weights,
-                                     DoubleVector &biases) override {
+  virtual void initialise_parameters(const T &mean, const T &std_dev,
+                                     Matrix<T> &weights,
+                                     Vector<T> &biases) override {
     // Set up a normal distribution.
 
     // Calling "normal_dist(rnd)" then returns a random number drawn
     // from this distribution
-    std::normal_distribution<> normal_dist(mean, std_dev);
+    std::normal_distribution<T> normal_dist(mean, std_dev);
 
     // Iterate over each layer's weights and biases to assign random values
     initRandomVector(biases, normal_dist);
@@ -389,10 +391,9 @@ public:
   /// x[1], x[2],... x[n_input] y[1], y[2],... y[n_output]
   /// end_of_file (literal string)
   ///
-  virtual void
-  read_training_data(const std::string &filename,
-                     std::vector<std::pair<DoubleVector, DoubleVector>>
-                         &training_data) const override {
+  virtual void read_training_data(const std::string &filename,
+                                  std::vector<std::pair<Vector<T>, Vector<T>>>
+                                      &training_data) const override {
     // TODO!
     // Wipe training data so we can push back
     training_data.clear();
@@ -407,8 +408,8 @@ public:
     training_data_file >> n_output;
 
     // Read the actual data
-    DoubleVector input(n_input);
-    DoubleVector output(n_output);
+    Vector<T> input(n_input);
+    Vector<T> output(n_output);
     for (unsigned i = 0; i < n_training_sets; i++) {
       for (unsigned j = 0; j < n_input; j++) {
         training_data_file >> input[j];
@@ -435,18 +436,18 @@ public:
   void output_training_data(const std::string &output_filename,
                             const std::string &training_data_filename) const {
     // Read training data
-    std::vector<std::pair<DoubleVector, DoubleVector>> training_data;
+    std::vector<std::pair<Vector<T>, Vector<T>>> training_data;
     bool do_sanity_check = true;
     read_training_data(training_data_filename, training_data);
 
     // Do the actual output
     std::ofstream outfile(output_filename.c_str());
-    NeuralNetworkBasis::output_training_data(outfile, training_data);
+    NeuralNetworkBasis<Vector<T>, Matrix<T>, T>::output_training_data(
+        outfile, training_data);
     outfile.close();
   }
   /// Output result from trained network for specified inputs
-  void output(std::string filename,
-              const std::vector<DoubleVector> &input) const {
+  void output(std::string filename, const std::vector<Vector<T>> &input) const {
     std::ofstream outfile(filename.c_str());
     output(outfile, input);
     outfile.close();
@@ -454,17 +455,17 @@ public:
 
   /// Output result from trained network for specified inputs
   void output(std::ofstream &outfile,
-              const std::vector<DoubleVector> &input) const {
+              const std::vector<Vector<T>> &input) const {
     unsigned npts = input.size();
     for (unsigned i = 0; i < npts; i++) {
-      DoubleVector current_input(input[i]);
+      Vector<T> current_input(input[i]);
       unsigned n = current_input.n();
       for (unsigned j = 0; j < n; j++) {
         outfile << current_input[j] << " ";
       }
 
       // Feed through network; output gets resized automatically
-      DoubleVector output;
+      Vector<T> output;
       feed_forward(current_input, output);
       n = output.n();
       for (unsigned j = 0; j < n; j++) {

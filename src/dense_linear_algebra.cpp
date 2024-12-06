@@ -47,7 +47,7 @@ void LULinearSolver<T>::factorise(const SquareMatrix<T> &matrix) {
 
     // Do rows up to diagonal
     for (unsigned i = 0; i < j; i++) {
-      double sum = LU_factors[n * i + j];
+      T sum = LU_factors[n * i + j];
       for (unsigned k = 0; k < i; k++) {
         sum -= LU_factors[n * i + k] * LU_factors[n * k + j];
       }
@@ -55,18 +55,18 @@ void LULinearSolver<T>::factorise(const SquareMatrix<T> &matrix) {
     }
 
     // Initialise search for largest pivot element
-    double largest_entry = 0.0;
+    T largest_entry = 0;
 
     // Do rows below diagonal -- here we still have to pivot!
     for (unsigned i = j; i < n; i++) {
-      double sum = LU_factors[n * i + j];
+      T sum = LU_factors[n * i + j];
       for (unsigned k = 0; k < j; k++) {
         sum -= LU_factors[n * i + k] * LU_factors[n * k + j];
       }
       LU_factors[n * i + j] = sum;
 
       // New largest entry found in a row below the diagonal?
-      double tmp = std::fabs(sum);
+      T tmp = std::fabs(sum);
       if (tmp >= largest_entry) {
         largest_entry = tmp;
         imax = i;
@@ -76,7 +76,7 @@ void LULinearSolver<T>::factorise(const SquareMatrix<T> &matrix) {
     // Test to see if we need to interchange rows; if so, do it!
     if (j != imax) {
       for (unsigned k = 0; k < n; k++) {
-        double tmp = LU_factors[n * imax + k];
+        T tmp = LU_factors[n * imax + k];
         LU_factors[n * imax + k] = LU_factors[n * j + k];
         LU_factors[n * j + k] = tmp;
       }
@@ -88,13 +88,13 @@ void LULinearSolver<T>::factorise(const SquareMatrix<T> &matrix) {
 
     // Divide by pivot element
     if (j != n - 1) {
-      double pivot = LU_factors[n * j + j];
-      if (pivot == 0.0) {
+      T pivot = LU_factors[n * j + j];
+      if (pivot == 0.0) { // FIXME:
         std::string error_message =
             "Singular matrix: zero pivot in row " + std::to_string(j);
         throw LinearSolverError(error_message.c_str());
       }
-      double tmp = 1.0 / pivot;
+      T tmp = 1.0 / pivot;
       for (unsigned i = j + 1; i < n; i++) {
         LU_factors[n * i + j] *= tmp;
       }
@@ -107,7 +107,7 @@ void LULinearSolver<T>::factorise(const SquareMatrix<T> &matrix) {
 /// Do the backsubstitution for the DenseLU solver.
 //=============================================================================
 template <typename T>
-Vector<T> LULinearSolver<T>::backsub(const Vector<T> &rhs, T zero) {
+Vector<T> LULinearSolver<T>::backsub(const Vector<T> &rhs) {
   // Initially copy the rhs vector into the result vector
   const unsigned n = rhs.n();
   Vector<T> result(n);
@@ -119,13 +119,13 @@ Vector<T> LULinearSolver<T>::backsub(const Vector<T> &rhs, T zero) {
   unsigned k = 0;
   for (unsigned i = 0; i < n; i++) {
     unsigned ip = Index[i];
-    double sum = result[ip];
+    T sum = result[ip];
     result[ip] = result[i];
     if (k != 0) {
       for (unsigned j = k - 1; j < i; j++) {
         sum -= LU_factors[n * i + j] * result[j];
       }
-    } else if (sum != zero) {
+    } else if (sum != 0) {
       k = i + 1;
     }
     result[i] = sum;
@@ -134,7 +134,7 @@ Vector<T> LULinearSolver<T>::backsub(const Vector<T> &rhs, T zero) {
   // Now do the back substitution
   // Note: this has to be an int to avoid wrapping around!
   for (int i = n - 1; i >= 0; i--) {
-    double sum = result[i];
+    T sum = result[i];
     for (unsigned j = i + 1; j < n; j++) {
       sum -= LU_factors[n * i + j] * result[j];
     }
@@ -151,9 +151,9 @@ template <typename T>
 T max_error(const SquareMatrix<T> &matrix, const Vector<T> &rhs,
             const Vector<T> &soln) {
   unsigned n = rhs.n();
-  double max_error = 0.0;
+  T max_error = 0;
   for (unsigned i = 0; i < n; i++) {
-    double error = rhs[i];
+    T error = rhs[i];
     for (unsigned j = 0; j < n; j++) {
       error -= matrix(i, j) * soln[j];
     }

@@ -102,8 +102,8 @@ public:
   /// Get cost for given input and specified target output, so we're doing
   /// a single run through the network and compare the output to the target
   /// output.
-  virtual double cost(const Vector<T> &input,
-                      const Vector<T> &target_output) const override {
+  virtual double cost(Vector<T> const &input,
+                      Vector<T> const &target_output) const override {
     double total_cost = 0.0;
     Vector<T> output;
     feed_forward(input, output);
@@ -120,10 +120,10 @@ public:
   ///   training_data[i].first  = input (a DoubleVector)
   ///   training_data[i].second = target_output (a DoubleVector)
   virtual double cost_for_training_data(
-      const std::vector<std::pair<Vector<T>, Vector<T>>> training_data)
+      std::vector<std::pair<Vector<T>, Vector<T>>> const training_data)
       const override {
     double ret{0};
-    for (const auto &data_pair : training_data) {
+    for (auto const &data_pair : training_data) {
       ret += cost(data_pair.first, data_pair.second);
     }
     return ret;
@@ -246,17 +246,18 @@ public:
   /// of the file used to document the convergence history.
   /// No convergence history is written if string is empty or not
   /// provided.
+
   virtual void
-  train(const std::vector<std::pair<Vector<T>, Vector<T>>> &training_data,
-        const double &learning_rate, const double &tol_training,
-        const unsigned &max_iter,
-        const std::string &convergence_history_file_name = "./log") override {
+  train(std::vector<std::pair<Vector<T>, Vector<T>>> const &training_data,
+        double const &learning_rate, const double &tol_training,
+        unsigned const &max_iter,
+        std::string const &convergence_history_file_name = "./log") override {
     // Initialize the convergence history vector (for tracking the cost)
     std::vector<double> convergence_history;
 
     // Iterate over the number of training iterations
     for (unsigned iter = 0; iter < max_iter; ++iter) {
-      double total_cost = 0.0;
+      T total_cost = 0.0;
 
       // Shuffle the training data to ensure stochastic gradient descent
       // is random and not stuck in local minima
@@ -266,9 +267,9 @@ public:
       std::shuffle(shuffled_data.begin(), shuffled_data.end(), g);
 
       // Loop over each training example
-      for (const auto &data_pair : shuffled_data) {
-        const Vector<T> &input = data_pair.first;
-        const Vector<T> &target_output = data_pair.second;
+      for (auto const &data_pair : shuffled_data) {
+        Vector<T> const &input = data_pair.first;
+        Vector<T> const &target_output = data_pair.second;
 
         // Feed-forward: Compute the output of the network for this input
         Vector<T> output(target_output.n());
@@ -290,7 +291,7 @@ public:
 
           // Compute the error for the current layer
           for (unsigned i = 0; i < layer.get_output_dim(); ++i) {
-            double error_sum = 0.0;
+            T error_sum = 0;
             for (unsigned j = 0; j < next_layer.get_output_dim(); ++j) {
               error_sum += next_layer.weights(i, j) * next_layer.error[j];
             }
@@ -305,10 +306,118 @@ public:
           // Update weights
           for (unsigned i = 0; i < layer.get_output_dim(); ++i) {
             for (unsigned j = 0; j < layer.get_input_dim(); ++j) {
-              double gradient =
+              T gradient =
                   layer.error[i] * (layer_idx == 0
                                         ? input[j]
                                         : (*layers[layer_idx - 1].output)[j]);
+              layer.weights(j, i) -= learning_rate * gradient;
+            }
+          }
+
+          // Update biases
+          for (unsigned i = 0; i < layer.biases.n(); ++i) {
+            layer.biases[i] -= learning_rate * layer.error[i];
+          }
+        }
+
+        // Calculate the cost for this input-output pair and accumulate it
+        total_cost += cost(input, target_output);
+      }
+
+      // Average the total cost across all training examples
+      total_cost /= training_data.size();
+
+      std::cout << "Iteration " << iter << " with cost " << total_cost
+                << std::endl;
+
+      // Check for convergence based on the tolerance
+      if (iter > 0 && std::abs(total_cost) < tol_training) {
+        std::cout << "Converged at iteration " << iter << " with cost "
+                  << total_cost << std::endl;
+        break;
+      }
+
+      // Log the cost for this iteration (for convergence tracking)
+      convergence_history.push_back(total_cost);
+
+      // Optionally, write convergence history to a file
+      if (!convergence_history_file_name.empty()) {
+        std::ofstream outFile(convergence_history_file_name, std::ios::app);
+        if (outFile) {
+          outFile << iter << " " << total_cost << std::endl;
+        }
+      }
+    }
+
+    // Optionally, save parameters to disk after training
+    if (!convergence_history_file_name.empty()) {
+      write_parameters_to_disk(convergence_history_file_name);
+    }
+  }
+
+  virtual void
+  fast_train(std::vector<std::pair<Vector<T>, Vector<T>>> const &training_data,
+             double const &learning_rate, const double &tol_training,
+             unsigned const &max_iter,
+             std::string const &convergence_history_file_name = "./log") {
+    // Initialize the convergence history vector (for tracking the cost)
+    std::vector<double> convergence_history;
+
+    // Iterate over the number of training iterations
+    for (unsigned iter = 0; iter < max_iter; ++iter) {
+      T total_cost = 0.0;
+
+      // Shuffle the training data to ensure stochastic gradient descent
+      // is random and not stuck in local minima
+      std::random_device rd; // Obtain a random seed
+      std::mt19937 g(rd());
+      auto shuffled_data = training_data;
+      std::shuffle(shuffled_data.begin(), shuffled_data.end(), g);
+
+      // Loop over each training example
+      for (auto const &data_pair : shuffled_data) {
+        Vector<T> const &input = data_pair.first;
+        Vector<T> const &target_output = data_pair.second;
+
+        // Feed-forward: Compute the output of the network for this input
+        Vector<T> output(target_output.n());
+        feed_forward(input, output);
+
+        // Backpropagation: Calculate the error and update weights and biases
+        // First, compute the error at the output layer
+        Vector<T> output_error(target_output.n());
+        for (size_t i = 0; i < target_output.n(); ++i) {
+          output_error[i] = (output[i] - target_output[i]) *
+                            layers.back().activationFunction->dsigma(output[i]);
+        }
+        layers.back().error = output_error;
+
+        // Hidden layers error propagation
+        for (int layer_idx = layers.size() - 2; layer_idx >= 0; --layer_idx) {
+          auto &layer = layers[layer_idx];
+          auto &next_layer = layers[layer_idx + 1];
+
+          // Compute the error for the current layer
+          for (unsigned i = 0; i < layer.get_output_dim(); ++i) {
+            T error_sum = 0;
+            for (unsigned j = 0; j < next_layer.get_output_dim(); ++j) {
+              error_sum += next_layer.weights(i, j) * next_layer.error[j];
+            }
+            layer.error[i] = error_sum * layer.activationFunction->dsigma(
+                                             (*layer.output)[i]);
+          }
+        }
+
+        // Update weights and biases using gradient descent
+        for (unsigned layer_idx = 0; layer_idx < layers.size(); ++layer_idx) {
+          auto &layer = layers[layer_idx];
+          Vector<T> const &prev_output =
+              (layer_idx == 0) ? input : *layers[layer_idx - 1].output;
+
+          // Update weights
+          for (unsigned i = 0; i < layer.get_output_dim(); ++i) {
+            for (unsigned j = 0; j < layer.get_input_dim(); ++j) {
+              T gradient = layer.error[i] * prev_output[j];
               layer.weights(j, i) -= learning_rate * gradient;
             }
           }

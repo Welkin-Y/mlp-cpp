@@ -295,7 +295,7 @@ private:
   void factorise(SquareMatrix<T> const &matrix);
 
   /// Do the backsubstitution step to solve the system LU result = rhs
-  Vector<T> backsub(Vector<T> const &rhs, T zero);
+  Vector<T> backsub(Vector<T> const &rhs);
 
   /// Storage for the index of permutations in the LU solve
   /// (used to handle pivoting)

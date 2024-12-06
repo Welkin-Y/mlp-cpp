@@ -59,7 +59,8 @@ int main(int argc, char **argv) {
   std::vector<std::pair<Vector<double>, Vector<double>>> training_data;
   nn.read_training_data(file_name, training_data);
 
-  nn.train(training_data, learning_rate, tol_training, max_iter, log_filename);
+  nn.fast_train(training_data, learning_rate, tol_training, max_iter,
+                log_filename);
 
   auto inputData = std::accumulate(training_data.begin(), training_data.end(),
                                    std::vector<Vector<double>>{},

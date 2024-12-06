@@ -1,4 +1,3 @@
-#include "dense_linear_algebra.h"
 #include "project2_a.h"
 #include "project2_a_basics.h"
 #include <iostream>
@@ -54,15 +53,17 @@ int main(int argc, char **argv) {
         std::make_pair(neurons[i], activation_function_pt));
   }
 
-  NeuralNetwork nn(n_input, non_input_layer); // Input layer has 2 neurons
+  NeuralNetwork<double> nn(n_input,
+                           non_input_layer); // Input layer has 2 neurons
 
-  std::vector<std::pair<DoubleVector, DoubleVector>> training_data;
+  std::vector<std::pair<Vector<double>, Vector<double>>> training_data;
   nn.read_training_data(file_name, training_data);
 
-  nn.train(training_data, learning_rate, tol_training, max_iter, log_filename);
+  nn.fast_train(training_data, learning_rate, tol_training, max_iter,
+                log_filename);
 
   auto inputData = std::accumulate(training_data.begin(), training_data.end(),
-                                   std::vector<DoubleVector>{},
+                                   std::vector<Vector<double>>{},
                                    [](auto vec, const auto &data) {
                                      vec.push_back(data.first);
                                      return vec;

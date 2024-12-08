@@ -5,9 +5,9 @@ CXXFLAGS_DEBUG = -g -DDEBUG -DRANGE_CHECKING -Wall -Wextra
 CXXFLAGS_RELEASE = -O3
 
 # Targets and sources
-TARGET_DEBUG = debug_project_2a.out
-TARGET_RELEASE = project_2a.out
-SOURCES = project_2a.cpp
+TARGET_DEBUG = debug_executable
+TARGET_RELEASE = executable
+SOURCES = project2_a.cpp
 
 # Build debug target
 debug: $(SOURCES)

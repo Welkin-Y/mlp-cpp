@@ -182,6 +182,8 @@ public:
     //     "Never get here! Please overload this function\n");
   }
 
+  virtual void initialise_parameters(const T &mean, const T &std_dev) = 0;
+
   // Helper functions
   //------------------
 

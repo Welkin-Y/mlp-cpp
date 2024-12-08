@@ -70,15 +70,14 @@ public:
                     &non_input_layer) {
     NeuralNetworkLayer<T> new_layer(n_input, non_input_layer[0].first,
                                     non_input_layer[0].second);
-    initialise_parameters(0, 0.1, new_layer.weights, new_layer.biases);
     layers.push_back(new_layer);
     for (unsigned i = 1; i < non_input_layer.size(); i++) {
       NeuralNetworkLayer<T> new_layer(non_input_layer[i - 1].first,
                                       non_input_layer[i].first,
                                       non_input_layer[i].second);
-      initialise_parameters(0, 0.1, new_layer.weights, new_layer.biases);
       layers.push_back(new_layer);
     }
+    initialise_parameters(0, 0.1);
   }
 
   /// Evaluate the feed-forward algorithm, running through the entire network,
@@ -463,6 +462,15 @@ public:
     }
   }
 
+  virtual void initialise_parameters(const T &mean, const T &std_dev) override {
+    std::normal_distribution<T> normal_dist(mean, std_dev);
+
+    for_each(this->layers.begin(), this->layers.end(), [&](auto &layer) {
+      initRandomVector(layer.biases, normal_dist);
+      initRandomMatrix(layer.weights, normal_dist);
+    });
+  }
+
   /// Initialise parameters (weights and biases), drawing random numbers
   /// from a normal distribution with specified mean and standard
   /// deviation. This function is broken but demonstrates how to draw
@@ -556,7 +564,7 @@ public:
     outfile.close();
   }
   /// Output result from trained network for specified inputs
-  void output(std::string filename, const std::vector<Vector<T>> &input) const {
+  void output(std::string filename, std::vector<Vector<T>> const &input) const {
     std::ofstream outfile(filename.c_str());
     output(outfile, input);
     outfile.close();
@@ -564,7 +572,7 @@ public:
 
   /// Output result from trained network for specified inputs
   void output(std::ofstream &outfile,
-              const std::vector<Vector<T>> &input) const {
+              std::vector<Vector<T>> const &input) const {
     unsigned npts = input.size();
     for (unsigned i = 0; i < npts; i++) {
       Vector<T> current_input(input[i]);

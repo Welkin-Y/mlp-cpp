@@ -106,14 +106,13 @@ public:
   /// Get cost for given input and specified target output, so we're doing
   /// a single run through the network and compare the output to the target
   /// output.
-  virtual double cost(const Vector &input,
-                      const Vector &target_output) const = 0;
+  virtual T cost(const Vector &input, const Vector &target_output) const = 0;
 
   /// Get cost for training data. The vector contains the training data
   /// in the form of pairs comprising
   ///   training_data[i].first  = input (a DoubleVector)
   ///   training_data[i].second = target_output (a DoubleVector)
-  virtual double cost_for_training_data(
+  virtual T cost_for_training_data(
       const std::vector<std::pair<Vector, Vector>> training_data) const = 0;
 
   /// Write parameters for network to file (e.g. following

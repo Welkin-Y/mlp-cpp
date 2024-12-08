@@ -101,31 +101,32 @@ public:
   /// Get cost for given input and specified target output, so we're doing
   /// a single run through the network and compare the output to the target
   /// output.
-  virtual double cost(Vector<T> const &input,
-                      Vector<T> const &target_output) const override {
-    double total_cost = 0.0;
-    Vector<T> output;
+  virtual T cost(Vector<T> const &input,
+                 Vector<T> const &target_output) const override {
+    T total_cost = 0;
+    Vector<T> output(target_output.n());
     feed_forward(input, output);
     for (size_t i = 0; i < target_output.n(); ++i) {
       double error = output[i] - target_output[i];
       total_cost += error * error;
     }
-    // Return the square error
-    return total_cost;
+    // Return the error
+    return total_cost / 2;
   }
 
   /// Get cost for training data. The vector contains the training data
   /// in the form of pairs comprising
   ///   training_data[i].first  = input (a DoubleVector)
   ///   training_data[i].second = target_output (a DoubleVector)
-  virtual double cost_for_training_data(
+  virtual T cost_for_training_data(
       std::vector<std::pair<Vector<T>, Vector<T>>> const training_data)
       const override {
-    double ret{0};
-    for (auto const &data_pair : training_data) {
-      ret += cost(data_pair.first, data_pair.second);
-    }
-    return ret;
+    return std::accumulate(training_data.begin(), training_data.end(), 0,
+                           [&](T sum, const auto &data_pair) {
+                             return sum +
+                                    cost(data_pair.first, data_pair.second);
+                           }) /
+           training_data.size();
   }
 
   /// Get cost for ///    number of neurons in previous layer (unsigned)
@@ -204,10 +205,25 @@ public:
       inFile >> m;
       inFile.ignore(); // to ignore the newline
 
+      // check if the layer has the correct input size
+      if (m != layer.get_input_dim()) {
+        throw std::runtime_error("Mismatch in input size in layer " +
+                                 std::to_string(layerIdx) + ", expected " +
+                                 std::to_string(layer.get_input_dim()) +
+                                 " but got " + std::to_string(m));
+      }
+
       // Read the number of neurons n in the current layer
       size_t n;
       inFile >> n;
       inFile.ignore(); // to ignore the newline
+      // check if the layer has the correct output size
+      if (n != layer.get_output_dim()) {
+        throw std::runtime_error("Mismatch in output size in layer " +
+                                 std::to_string(layerIdx) + ", expected " +
+                                 std::to_string(layer.get_output_dim()) +
+                                 " but got " + std::to_string(n));
+      }
 
       // Read the bias vector (n lines, each containing two numbers)
       for (size_t j = 0; j < n; ++j) {
@@ -256,7 +272,7 @@ public:
 
     // Iterate over the number of training iterations
     for (unsigned iter = 0; iter < max_iter; ++iter) {
-      T total_cost = 0.0;
+      T total_cost = 0;
 
       // Shuffle the training data to ensure stochastic gradient descent
       // is random and not stuck in local minima

@@ -68,5 +68,9 @@ int main(int argc, char **argv) {
                                      vec.push_back(data.first);
                                      return vec;
                                    });
+  std::cout << "Cost for training data: "
+            << nn.cost_for_training_data(training_data) << "\n";
   nn.output(output_filename, inputData);
+  nn.write_parameters_to_disk("parameters.txt");
+  nn.read_parameters_from_disk("parameters.txt");
 }

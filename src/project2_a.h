@@ -107,7 +107,7 @@ public:
     Vector<T> output(target_output.n());
     feed_forward(input, output);
     for (size_t i = 0; i < target_output.n(); ++i) {
-      double error = output[i] - target_output[i];
+      T error = output[i] - target_output[i];
       total_cost += error * error;
     }
     // Return the error
@@ -121,25 +121,14 @@ public:
   virtual T cost_for_training_data(
       std::vector<std::pair<Vector<T>, Vector<T>>> const training_data)
       const override {
-    return std::accumulate(training_data.begin(), training_data.end(), 0,
-                           [&](T sum, const auto &data_pair) {
+    return std::accumulate(training_data.begin(), training_data.end(), (T)0,
+                           [&](T sum, auto const &data_pair) {
                              return sum +
                                     cost(data_pair.first, data_pair.second);
                            }) /
            training_data.size();
   }
 
-  /// Get cost for ///    number of neurons in previous layer (unsigned)
-  ///    number of neurons in current layer
-  ///    0 b[0] (index and entry in bias vector)
-  ///     :
-  ///    n_neuron-1 b[n_neuron-1]
-  ///    0 0 a[0][0] (indices and entry in weight matrix)
-  ///    0 1 a[0][1]
-  ///     :
-  ///    1 0 a[1][0]
-  ///    1 1 a[1][1]
-  ///     :
   virtual void
   write_parameters_to_disk(const std::string &filename) const override {
     std::ofstream outFile(filename);
@@ -149,20 +138,18 @@ public:
       return;
     }
 
-    // Iterate over each non-input layer in the network
-    for (size_t layerIdx = 1; layerIdx < layers.size(); ++layerIdx) {
-      const NeuralNetworkLayer<T> &layer = layers[layerIdx];
-
+    // Iterate over each layer in the network
+    for (auto const &layer : layers) {
       // Write the name of the activation function
       outFile << layer.activationFunction->name() << std::endl;
-
-      // Write the dimension m of the input (previous layer size)
-      size_t m = layer.weights.m();
-      outFile << m << std::endl;
 
       // Write the number of neurons n in the current layer
       size_t n = layer.weights.n();
       outFile << n << std::endl;
+
+      // Write the dimension m of the input (previous layer size)
+      size_t m = layer.weights.m();
+      outFile << m << std::endl;
 
       // Write the bias vector (n lines, each containing two numbers)
       for (size_t j = 0; j < layer.biases.n(); ++j) {
@@ -192,10 +179,9 @@ public:
       return;
     }
 
-    // Iterate over each non-input layer in the network
-    for (size_t layerIdx = 1; layerIdx < layers.size(); ++layerIdx) {
-      NeuralNetworkLayer<T> &layer = layers[layerIdx];
-
+    // Iterate over layer in the network
+    size_t layerIdx = 0;
+    for (auto &layer : layers) {
       // Read the activation function name
       std::string activationFunctionName;
       std::getline(inFile, activationFunctionName);
@@ -228,7 +214,7 @@ public:
       // Read the bias vector (n lines, each containing two numbers)
       for (size_t j = 0; j < n; ++j) {
         size_t index;
-        double value;
+        T value;
         inFile >> index >> value;
         inFile.ignore(); // to ignore the newline
         layer.biases[index] = value;
@@ -238,12 +224,13 @@ public:
       for (size_t i = 0; i < n; ++i) {
         for (size_t j = 0; j < m; ++j) {
           size_t row, col;
-          double value;
+          T value;
           inFile >> row >> col >> value;
           inFile.ignore(); // to ignore the newline
           layer.weights(row, col) = value;
         }
       }
+      layerIdx++;
     }
 
     // Close the file
@@ -272,7 +259,6 @@ public:
 
     // Iterate over the number of training iterations
     for (unsigned iter = 0; iter < max_iter; ++iter) {
-      T total_cost = 0;
 
       // Shuffle the training data to ensure stochastic gradient descent
       // is random and not stuck in local minima
@@ -334,13 +320,9 @@ public:
             layer.biases[i] -= learning_rate * layer.error[i];
           }
         }
-
-        // Calculate the cost for this input-output pair and accumulate it
-        total_cost += cost(input, target_output);
       }
 
-      // Average the total cost across all training examples
-      total_cost /= training_data.size();
+      T total_cost = cost_for_training_data(training_data);
 
       std::cout << "Iteration " << iter << " with cost " << total_cost
                 << std::endl;
@@ -380,7 +362,6 @@ public:
 
     // Iterate over the number of training iterations
     for (unsigned iter = 0; iter < max_iter; ++iter) {
-      T total_cost = 0.0;
 
       // Shuffle the training data to ensure stochastic gradient descent
       // is random and not stuck in local minima
@@ -442,13 +423,10 @@ public:
             layer.biases[i] -= learning_rate * layer.error[i];
           }
         }
-
-        // Calculate the cost for this input-output pair and accumulate it
-        total_cost += cost(input, target_output);
       }
 
       // Average the total cost across all training examples
-      total_cost /= training_data.size();
+      T total_cost = cost_for_training_data(training_data);
 
       std::cout << "Iteration " << iter << " with cost " << total_cost
                 << std::endl;

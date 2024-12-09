@@ -127,6 +127,14 @@ public:
   ~Matrix() = default;
   Matrix(const Matrix &other)
       : N(other.N), M(other.M), Matrix_storage(other.Matrix_storage) {}
+  Matrix &operator=(const Matrix &other) {
+    if (this != &other) {
+      N = other.N;
+      M = other.M;
+      Matrix_storage = other.Matrix_storage;
+    }
+    return *this;
+  }
   Matrix(Matrix &&other) noexcept
       : N(other.N), M(other.M),
         Matrix_storage(std::move(other.Matrix_storage)) {

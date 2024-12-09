@@ -388,7 +388,28 @@ public:
         }
         layers.back().error = output_error;
 
-        // Hidden layers error propagation
+        // Update weights and biases of last layer using gradient descent
+        auto layer_idx = layers.size() - 1;
+        auto &layer = layers[layer_idx];
+        Vector<T> const &prev_output =
+            (layer_idx == 0) ? input : *layers[layer_idx - 1].output;
+
+        // keep track of the weights before the update
+        auto prev_weights = layer.weights;
+        // Update weights
+        for (unsigned i = 0; i < layer.get_output_dim(); ++i) {
+          for (unsigned j = 0; j < layer.get_input_dim(); ++j) {
+            T gradient = layer.error[i] * prev_output[j];
+            layer.weights(j, i) -= learning_rate * gradient;
+          }
+        }
+
+        // Update biases
+        for (unsigned i = 0; i < layer.biases.n(); ++i) {
+          layer.biases[i] -= learning_rate * layer.error[i];
+        }
+
+        // Back propagation
         for (int layer_idx = layers.size() - 2; layer_idx >= 0; --layer_idx) {
           auto &layer = layers[layer_idx];
           auto &next_layer = layers[layer_idx + 1];
@@ -397,20 +418,17 @@ public:
           for (unsigned i = 0; i < layer.get_output_dim(); ++i) {
             T error_sum = 0;
             for (unsigned j = 0; j < next_layer.get_output_dim(); ++j) {
-              error_sum += next_layer.weights(i, j) * next_layer.error[j];
+              error_sum += prev_weights(i, j) * next_layer.error[j];
             }
             layer.error[i] = error_sum * layer.activationFunction->dsigma(
                                              (*layer.output)[i]);
           }
-        }
-
-        // Update weights and biases using gradient descent
-        for (unsigned layer_idx = 0; layer_idx < layers.size(); ++layer_idx) {
-          auto &layer = layers[layer_idx];
+          // Update weights and biases using gradient descent
           Vector<T> const &prev_output =
               (layer_idx == 0) ? input : *layers[layer_idx - 1].output;
 
           // Update weights
+          prev_weights = layer.weights;
           for (unsigned i = 0; i < layer.get_output_dim(); ++i) {
             for (unsigned j = 0; j < layer.get_input_dim(); ++j) {
               T gradient = layer.error[i] * prev_output[j];
